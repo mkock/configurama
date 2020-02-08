@@ -440,8 +440,12 @@ func TestExtractWithHooks(t *testing.T) {
 		"zip":     "2200",
 		"city":    "Copenhagen",
 		"country": "Denmark",
-	},
-	}
+	}, "prefixed": {
+		"one.var1": "var1.1",
+		"one.var2": "var1.2",
+		"two.var1": "var2.1",
+		"two.var2": "var2.2",
+	}}
 
 	t.Run("it works with nil hooks", func(t *testing.T) {
 		var con Contact
@@ -470,6 +474,35 @@ func TestExtractWithHooks(t *testing.T) {
 			return nil
 		}
 		err := c.ExtractWithHooks("main", "", &con, pre, nil)
+		verifyNil(t, err)
+		if !called {
+			t.Errorf("expected pre-hook to have been called")
+		}
+	})
+
+	t.Run("it calls the pre hook with only prefix parameters", func(t *testing.T) {
+		var con Contact
+		var called bool
+
+		c := New(params)
+		verifyContact := func(t *testing.T, m map[string]string) {
+			t.Helper()
+			if len(m) != 2 {
+				t.Errorf("expected %d parameters, got %d", 2, len(m))
+			}
+			if m["var1"] != "var1.1" {
+				t.Errorf("expected pre-hook parameter %q to equal %q, got %q", "var1", "var1.1", m["var1"])
+			}
+			if m["var2"] != "var1.2" {
+				t.Errorf("expected pre-hook parameter %q to equal %q, got %q", "var2", "var1.2", m["var2"])
+			}
+		}
+		pre := func(m map[string]string) error {
+			verifyContact(t, m)
+			called = true
+			return nil
+		}
+		err := c.ExtractWithHooks("prefixed", "one.", &con, pre, nil)
 		verifyNil(t, err)
 		if !called {
 			t.Errorf("expected pre-hook to have been called")

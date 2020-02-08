@@ -101,7 +101,9 @@ func (p *Pool) extractParams(section, prefix string) (map[string]string, error) 
 	if prefix != "" {
 		tmp := make(map[string]string, len(params))
 		for key, val := range params {
-			tmp[strings.TrimPrefix(key, prefix)] = val
+			if strings.HasPrefix(key, prefix) {
+				tmp[strings.TrimPrefix(key, prefix)] = val
+			}
 		}
 		params = tmp
 	}
