@@ -92,7 +92,7 @@ check:
 	return value, nil
 }
 
-// String returns the value for the given key in the given section.
+// String returns the string value for the given key in the given section.
 // A NoKeyError is returned if the key is required but does not exist.
 // A ValidationError is returned if the value didn't validate.
 func (p *Pool) String(section, key string, options ...Option) (string, error) {
@@ -102,6 +102,19 @@ func (p *Pool) String(section, key string, options ...Option) (string, error) {
 	}
 	val, ok := params[key]
 	return checkApplyOptions(key, val, ok, options...)
+}
+
+// Strings returns the string values for the given key in the given section.
+// Separator will be used to split the string into a slice.
+// A NoKeyError is returned if the key is required but does not exist.
+// A ValidationError is returned if the value didn't validate.
+func (p *Pool) Strings(section, key, separator string, options ...Option) ([]string, error) {
+	val, err := p.String(section, key, options...)
+	if err != nil || val == "" {
+		return nil, err
+	}
+	s := strings.Split(val, separator)
+	return s, nil
 }
 
 // Int attempts to convert the value for the requested key into an int.
@@ -150,6 +163,26 @@ func (p *Pool) Duration(section, key string, options ...Option) (time.Duration, 
 		return 0, ConversionError{key, val, "Duration"}
 	}
 	return d, nil
+}
+
+// Time attempts to convert the value for the requested key into a time.Time.
+// If the time format is omitted, timestamps are parsed as RFC3339 (2006-01-02T15:04:05Z07:00).
+// A NoKeyError is returned if the key is required but does not exist.
+// A ValidationError is returned if the value didn't validate.
+// A ConversionError is returned if type conversion fails.
+func (p *Pool) Time(section, key, format string, options ...Option) (time.Time, error) {
+	val, err := p.String(section, key, options...)
+	if err != nil || val == "" {
+		return time.Time{}, err
+	}
+	if format == "" {
+		format = time.RFC3339
+	}
+	t, err := time.Parse(format, val)
+	if err != nil {
+		return time.Time{}, ConversionError{key, val, "Time"}
+	}
+	return t, nil
 }
 
 // Merge stores the given map of configuration parameters, overriding (by default)

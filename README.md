@@ -19,7 +19,7 @@ explicit and doesn't use reflection, so it's recommended over V1.
 This package supports Go Modules. Simply run:
 
 ```bash
-go get github.com/mkock/configurama/V2
+go get github.com/mkock/configurama/v2
 ```
 
 ## V2
@@ -39,9 +39,11 @@ names, so it's up to you what you want to do with them, but common strategies ar
 Retrieving parameters is achieved via the helper methods:
 
 * `Pool.String(section, key string, options ...Option) (string, error)`
+* `Pool.Strings(section, key, separator string, options ...Option) ([]string, error)`
 * `Pool.Int(section, key string, options ...Option) (int, error)`
 * `Pool.Float(section, key string, options ...Option) (float64, error)`
 * `Pool.Duration(section, key string, options ...Option) (time.Duration, error)`
+* `Pool.Time(section, key, format string, options ...Option) (time.Time, error)`
 
 `options` can be omitted altogether. They are helpful when you need to indicate that a parameter is
 required, should be validated or if it should use a default value for unknown/empty parameters.

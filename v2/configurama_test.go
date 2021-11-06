@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 )
@@ -136,6 +137,70 @@ func TestString(t *testing.T) {
 			}
 			if actual != tc.expected {
 				t.Errorf("expected value %q, got %q", tc.expected, actual)
+			}
+		})
+	}
+}
+
+func TestStrings(t *testing.T) {
+	cnf := New(map[string]map[string]string{
+		"dev": {
+			"zero":    "0",
+			"simple":  "simple",
+			"long":    "one,two,three,four,five,six,seven,eight,nine,ten",
+			"complex": "14,hello:56,\"quo,ted\",+,",
+			"empty":   "",
+		},
+	})
+
+	tt := map[string]struct {
+		section, key, separator string
+		options                 []Option
+		expected                []string
+		err                     error
+	}{
+		"empty case": {
+			"", "", "", []Option{}, nil, nil,
+		},
+		"missing key": {
+			"dev", "unknown", "", []Option{}, nil, nil,
+		},
+		"matching key": {
+			"dev", "simple", ",", []Option{}, []string{"simple"}, nil,
+		},
+		"matching key, empty value": {
+			"dev", "empty", ",", []Option{}, []string{}, nil,
+		},
+		"matching key, empty value with default": {
+			"dev", "empty", ",", []Option{Default("one,two,three")}, []string{"one", "two", "three"}, nil,
+		},
+		"matching key, long": {
+			"dev", "long", ",", []Option{}, []string{"one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"}, nil,
+		},
+		"matching key, long, different separator": {
+			"dev", "long", ":", []Option{}, []string{"one,two,three,four,five,six,seven,eight,nine,ten"}, nil,
+		},
+		"matching key, complex": {
+			"dev", "complex", ",", []Option{}, []string{"14", "hello:56", "\"quo", "ted\"", "+", ""}, nil,
+		},
+		"matching key, complex with validation (success)": {
+			"dev", "complex", ",", []Option{Validate(regexp.MustCompile(`^[0-9]{2}`))}, []string{"14", "hello:56", "\"quo", "ted\"", "+", ""}, nil,
+		},
+		"matching key, complex with validation (failed)": {
+			"dev", "complex", ",", []Option{Validate(regexp.MustCompile(`^[a-z]{2}`))}, []string{}, ValidationError("complex"),
+		},
+	}
+
+	var actual []string
+	var err error
+	for name, tc := range tt {
+		t.Run(name, func(t *testing.T) {
+			actual, err = cnf.Strings(tc.section, tc.key, tc.separator, tc.options...)
+			if err != tc.err {
+				t.Errorf("expected error %s, got %s", tc.err, err)
+			}
+			if strings.Join(actual, ",") != strings.Join(tc.expected, ",") {
+				t.Errorf("expected value %v, got %v", tc.expected, actual)
 			}
 		})
 	}
@@ -309,6 +374,63 @@ func TestDuration(t *testing.T) {
 				t.Errorf("expected error %s, got %s", tc.err, err)
 			}
 			if actual.String() != tc.expected {
+				t.Errorf("expected value %q, got %q", tc.expected, actual.String())
+			}
+		})
+	}
+}
+
+func TestTime(t *testing.T) {
+	reference, err := time.Parse(time.RFC3339, "2021-11-06T22:30:00+01:00")
+	verifyNil(t, err)
+
+	cnf := New(map[string]map[string]string{
+		"dev": {
+			"zero":    "0",
+			"invalid": "invalid",
+			"time":    "2021-11-06T22:30:00+01:00",
+			"date":    "2021-11-06Z01:00",
+			"empty":   "",
+		},
+	})
+
+	tt := map[string]struct {
+		section, key, format string
+		options              []Option
+		expected             time.Time
+		err                  error
+	}{
+		"empty case": {
+			"", "", time.RFC3339, []Option{}, time.Time{}, nil,
+		},
+		"missing key": {
+			"dev", "unknown", time.RFC3339, []Option{}, time.Time{}, nil,
+		},
+		"matching key": {
+			"dev", "time", time.RFC3339, []Option{}, reference, nil,
+		},
+		"matching key, empty value": {
+			"dev", "zero", time.RFC3339, []Option{}, time.Time{}, ConversionError{"zero", "0", "Time"},
+		},
+		"matching key, invalid value": {
+			"dev", "invalid", time.RFC3339, []Option{}, time.Time{}, ConversionError{"invalid", "invalid", "Time"},
+		},
+		"empty parameter with default": {
+			"dev", "empty", time.RFC3339, []Option{Default("2021-11-06T22:30:00+01:00")}, reference, nil,
+		},
+		"empty parameter with invalid default": {
+			"dev", "empty", time.RFC3339, []Option{Default("hello")}, time.Time{}, ConversionError{"empty", "hello", "Time"},
+		},
+	}
+
+	var actual time.Time
+	for name, tc := range tt {
+		t.Run(name, func(t *testing.T) {
+			actual, err = cnf.Time(tc.section, tc.key, tc.format, tc.options...)
+			if err != tc.err {
+				t.Errorf("expected error %s, got %s", tc.err, err)
+			}
+			if !actual.Equal(tc.expected) {
 				t.Errorf("expected value %q, got %q", tc.expected, actual.String())
 			}
 		})
