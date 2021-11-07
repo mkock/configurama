@@ -322,6 +322,66 @@ func TestFloat(t *testing.T) {
 	}
 }
 
+func TestBool(t *testing.T) {
+	cnf := New(map[string]map[string]string{
+		"dev": {
+			"zero":    "0",
+			"invalid": "invalid",
+			"int":     "1",
+			"true":    "true",
+			"yes":     "y",
+			"no":      "no",
+			"empty":   "",
+		},
+	})
+
+	tt := map[string]struct {
+		section, key string
+		options      []Option
+		expected     bool
+		err          error
+	}{
+		"empty case": {
+			"", "", []Option{}, false, nil,
+		},
+		"missing key": {
+			"dev", "unknown", []Option{}, false, nil,
+		},
+		"matching key": {
+			"dev", "int", []Option{}, true, nil,
+		},
+		"matching key, empty value": {
+			"dev", "zero", []Option{}, false, nil,
+		},
+		"matching key, empty value with default": {
+			"dev", "empty", []Option{Default("t")}, true, nil,
+		},
+		"matching key, invalid value": {
+			"dev", "invalid", []Option{}, false, ConversionError{"invalid", "invalid", "bool"},
+		},
+		"matching key, verbal": {
+			"dev", "true", []Option{}, true, nil,
+		},
+		"matching key with default": {
+			"dev", "no", []Option{Default("true")}, false, nil,
+		},
+	}
+
+	var actual bool
+	var err error
+	for name, tc := range tt {
+		t.Run(name, func(t *testing.T) {
+			actual, err = cnf.Bool(tc.section, tc.key, tc.options...)
+			if err != tc.err {
+				t.Errorf("expected error %s, got %s", tc.err, err)
+			}
+			if actual != tc.expected {
+				t.Errorf("expected value %t, got %t", tc.expected, actual)
+			}
+		})
+	}
+}
+
 func TestDuration(t *testing.T) {
 	cnf := New(map[string]map[string]string{
 		"dev": {

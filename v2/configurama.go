@@ -149,6 +149,46 @@ func (p *Pool) Float(section, key string, options ...Option) (float64, error) {
 	return f, nil
 }
 
+// Bool attempts to convert the value for the requested key into a bool.
+// Acceptable values for truth are: t, true, y, yes and 1.
+// Acceptable values for falsehood are: f, false, n, no and 0.
+// A NoKeyError is returned if the key is required but does not exist.
+// A ValidationError is returned if the value didn't validate.
+// A ConversionError is returned if type conversion fails.
+func (p *Pool) Bool(section, key string, options ...Option) (bool, error) {
+	val, err := p.String(section, key, options...)
+	if err != nil || val == "" {
+		return false, err
+	}
+	switch val {
+	case "t":
+		return true, nil
+	case "true":
+		return true, nil
+	case "y":
+		return true, nil
+	case "yes":
+		return true, nil
+	case "on":
+		return true, nil
+	case "1":
+		return true, nil
+	case "f":
+		return false, nil
+	case "false":
+		return false, nil
+	case "n":
+		return false, nil
+	case "no":
+		return false, nil
+	case "off":
+		return false, nil
+	case "0":
+		return false, nil
+	}
+	return false, ConversionError{key, val, "bool"}
+}
+
 // Duration attempts to convert the value for the requested key into a time.Duration.
 // A NoKeyError is returned if the key is required but does not exist.
 // A ValidationError is returned if the value didn't validate.
