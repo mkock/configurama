@@ -36,14 +36,21 @@ names, so it's up to you what you want to do with them, but common strategies ar
 2. Having a section per service, eg. "database", "cache", "stripe" etc.
 3. Having a section per environment, eg. "dev", "prod" etc.
 
-Retrieving parameters is achieved via the helper methods:
+Retrieving parameters is achieved via the helper methods.
+First, let's fetch a section:
 
-* `Pool.String(section, key string, options ...Option) (string, error)`
-* `Pool.Strings(section, key, separator string, options ...Option) ([]string, error)`
-* `Pool.Int(section, key string, options ...Option) (int, error)`
-* `Pool.Float(section, key string, options ...Option) (float64, error)`
-* `Pool.Duration(section, key string, options ...Option) (time.Duration, error)`
-* `Pool.Time(section, key, format string, options ...Option) (time.Time, error)`
+```go
+devSection, ok =: Pool.Section("dev"")
+```
+
+Once we have a section, we can extrapolate parameters in a type-safe manner:
+
+* `devSection.String(key string, options ...Option) (string, error)`
+* `devSection.Strings(key, separator string, options ...Option) ([]string, error)`
+* `devSection.Int(key string, options ...Option) (int, error)`
+* `devSection.Float(key string, options ...Option) (float64, error)`
+* `devSection.Duration(key string, options ...Option) (time.Duration, error)`
+* `devSection.Time(key, format string, options ...Option) (time.Time, error)`
 
 `options` can be omitted altogether. They are helpful when you need to indicate that a parameter is
 required, should be validated or if it should use a default value for unknown/empty parameters.
@@ -55,7 +62,7 @@ required, should be validated or if it should use a default value for unknown/em
 3. If the `Validate` option is given in combination with `Default`, then the default value will also be validated.
 4. The `Default` option only applies for missing/empty parameters, _not_ for failed validations or required parameters.
 
-### Other Options
+### Updating a Configuration Pool
 
 You can always call `Merge()` on an existing pool if you wish to add/overwrite
 one or more configuration parameters.
@@ -98,21 +105,25 @@ params := map[string]map[string]string{
 config := configurama.New(params)
 
 // In your respective services/packages, parameters can be retrieved as such:
-service, err := config.String("dev", "db.service", Required())
-host, err := config.String("dev", "db.host", Required())
-port, err := config.Int("dev", "db.port", Default("3306"))
-username, err := config.String("dev", "db.username", Default("root"))
-password, err := config.String("dev", "db.password")
-db, err := config.String("dev", "db.db", Required())
+devSection, ok := config.Section("dev")
+if !ok {
+	// Raise an error.
+}
+service, err := devSection.String("db.service", Required())
+host, err := devSection.String("db.host", Required())
+port, err := devSection.Int("db.port", Default("3306"))
+username, err := devSection.String("db.username", Default("root"))
+password, err := devSection.String("db.password")
+db, err := devSection.String("db.db", Required())
 ```
 
 ### Notes
 
 This package is _not_ concurrency-safe as I didn't deem it necessary for my
 current needs. The common scenario is to simply load configuration from disk,
-populate a configurama struct with it and then calling `Extract()` from various
+populate a Configurama struct with it and then fetching parameters from various
 other packages to extract local copies of each section. If you are using this
-package and need an implementation that is concurrency-safe, let me know and
+package and need an implementation that is concurrency-safe, let me know, and
 I'll implement it. Or better, provide a PR.
 
 ## V1

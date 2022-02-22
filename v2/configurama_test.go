@@ -82,6 +82,12 @@ func TestCheckApplyOptions(t *testing.T) {
 		"no value, options: require, validate (succeeds), default": {
 			"x", "", false, []Option{Require(), Validate(regexp.MustCompile(`^y$`)), Default("z")}, NoKeyError("x"), "",
 		},
+		"got value, options: require, validate integral (succeeds), default": {
+			"x", "123", true, []Option{Require(), ValidateIntegral()}, nil, "123",
+		},
+		"got value, options: require, validate integral (fails), default": {
+			"x", "123.5", true, []Option{Require(), ValidateIntegral()}, ValidationError("x"), "",
+		},
 	}
 
 	var actual string
@@ -111,19 +117,20 @@ func TestString(t *testing.T) {
 
 	tt := map[string]struct {
 		section, key, expected string
+		sectionExists          bool
 		err                    error
 	}{
 		"empty case": {
-			"", "", "", nil,
+			"", "", "", false, nil,
 		},
 		"missing key": {
-			"dev", "unknown", "", nil,
+			"dev", "unknown", "", true, nil,
 		},
 		"matching key": {
-			"dev", "db.username", "root", nil,
+			"dev", "db.username", "root", true, nil,
 		},
 		"matching key, empty value": {
-			"dev", "db.connstring", "", nil,
+			"dev", "db.connstring", "", true, nil,
 		},
 	}
 
@@ -131,7 +138,11 @@ func TestString(t *testing.T) {
 	var err error
 	for name, tc := range tt {
 		t.Run(name, func(t *testing.T) {
-			actual, err = cnf.String(tc.section, tc.key)
+			sec, ok := cnf.Section(tc.section)
+			if ok != tc.sectionExists {
+				t.Errorf("expected to find section %q", tc.section)
+			}
+			actual, err = sec.String(tc.key)
 			if err != tc.err {
 				t.Errorf("expected error %s, got %s", tc.err, err)
 			}
@@ -157,37 +168,38 @@ func TestStrings(t *testing.T) {
 		section, key, separator string
 		options                 []Option
 		expected                []string
+		sectionExists           bool
 		err                     error
 	}{
 		"empty case": {
-			"", "", "", []Option{}, nil, nil,
+			"", "", "", []Option{}, nil, false, nil,
 		},
 		"missing key": {
-			"dev", "unknown", "", []Option{}, nil, nil,
+			"dev", "unknown", "", []Option{}, nil, true, nil,
 		},
 		"matching key": {
-			"dev", "simple", ",", []Option{}, []string{"simple"}, nil,
+			"dev", "simple", ",", []Option{}, []string{"simple"}, true, nil,
 		},
 		"matching key, empty value": {
-			"dev", "empty", ",", []Option{}, []string{}, nil,
+			"dev", "empty", ",", []Option{}, []string{}, true, nil,
 		},
 		"matching key, empty value with default": {
-			"dev", "empty", ",", []Option{Default("one,two,three")}, []string{"one", "two", "three"}, nil,
+			"dev", "empty", ",", []Option{Default("one,two,three")}, []string{"one", "two", "three"}, true, nil,
 		},
 		"matching key, long": {
-			"dev", "long", ",", []Option{}, []string{"one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"}, nil,
+			"dev", "long", ",", []Option{}, []string{"one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"}, true, nil,
 		},
 		"matching key, long, different separator": {
-			"dev", "long", ":", []Option{}, []string{"one,two,three,four,five,six,seven,eight,nine,ten"}, nil,
+			"dev", "long", ":", []Option{}, []string{"one,two,three,four,five,six,seven,eight,nine,ten"}, true, nil,
 		},
 		"matching key, complex": {
-			"dev", "complex", ",", []Option{}, []string{"14", "hello:56", "\"quo", "ted\"", "+", ""}, nil,
+			"dev", "complex", ",", []Option{}, []string{"14", "hello:56", "\"quo", "ted\"", "+", ""}, true, nil,
 		},
 		"matching key, complex with validation (success)": {
-			"dev", "complex", ",", []Option{Validate(regexp.MustCompile(`^[0-9]{2}`))}, []string{"14", "hello:56", "\"quo", "ted\"", "+", ""}, nil,
+			"dev", "complex", ",", []Option{Validate(regexp.MustCompile(`^[0-9]{2}`))}, []string{"14", "hello:56", "\"quo", "ted\"", "+", ""}, true, nil,
 		},
 		"matching key, complex with validation (failed)": {
-			"dev", "complex", ",", []Option{Validate(regexp.MustCompile(`^[a-z]{2}`))}, []string{}, ValidationError("complex"),
+			"dev", "complex", ",", []Option{Validate(regexp.MustCompile(`^[a-z]{2}`))}, []string{}, true, ValidationError("complex"),
 		},
 	}
 
@@ -195,7 +207,11 @@ func TestStrings(t *testing.T) {
 	var err error
 	for name, tc := range tt {
 		t.Run(name, func(t *testing.T) {
-			actual, err = cnf.Strings(tc.section, tc.key, tc.separator, tc.options...)
+			sec, ok := cnf.Section(tc.section)
+			if ok != tc.sectionExists {
+				t.Errorf("expected to find section %q", tc.section)
+			}
+			actual, err = sec.Strings(tc.key, tc.separator, tc.options...)
 			if err != tc.err {
 				t.Errorf("expected error %s, got %s", tc.err, err)
 			}
@@ -218,34 +234,35 @@ func TestInt(t *testing.T) {
 	})
 
 	tt := map[string]struct {
-		section, key string
-		options      []Option
-		expected     int
-		err          error
+		section, key  string
+		options       []Option
+		expected      int
+		sectionExists bool
+		err           error
 	}{
 		"empty case": {
-			"", "", []Option{}, 0, nil,
+			"", "", []Option{}, 0, false, nil,
 		},
 		"missing key with default": {
-			"dev", "unknown", []Option{Default("90")}, 90, nil,
+			"dev", "unknown", []Option{Default("90")}, 90, true, nil,
 		},
 		"missing key, required": {
-			"dev", "unknown", []Option{Require()}, 0, NoKeyError("unknown"),
+			"dev", "unknown", []Option{Require()}, 0, true, NoKeyError("unknown"),
 		},
 		"matching key": {
-			"dev", "int", []Option{}, 14, nil,
+			"dev", "int", []Option{}, 14, true, nil,
 		},
 		"matching key, empty value": {
-			"dev", "zero", []Option{}, 0, nil,
+			"dev", "zero", []Option{}, 0, true, nil,
 		},
 		"matching key, invalid value": {
-			"dev", "invalid", []Option{}, 0, ConversionError{"invalid", "invalid", "int"},
+			"dev", "invalid", []Option{}, 0, true, ConversionError{"invalid", "invalid", "int"},
 		},
 		"matching key, float value": {
-			"dev", "float", []Option{}, 0, ConversionError{"float", "12.5", "int"},
+			"dev", "float", []Option{}, 0, true, ConversionError{"float", "12.5", "int"},
 		},
 		"empty parameter with default": {
-			"dev", "empty", []Option{Default("42")}, 42, nil,
+			"dev", "empty", []Option{Default("42")}, 42, true, nil,
 		},
 	}
 
@@ -253,7 +270,11 @@ func TestInt(t *testing.T) {
 	var err error
 	for name, tc := range tt {
 		t.Run(name, func(t *testing.T) {
-			actual, err = cnf.Int(tc.section, tc.key, tc.options...)
+			sec, ok := cnf.Section(tc.section)
+			if ok != tc.sectionExists {
+				t.Errorf("expected to find section %q", tc.section)
+			}
+			actual, err = sec.Int(tc.key, tc.options...)
 			if err != tc.err {
 				t.Errorf("expected error %s, got %s", tc.err, err)
 			}
@@ -276,34 +297,35 @@ func TestFloat(t *testing.T) {
 	})
 
 	tt := map[string]struct {
-		section, key string
-		options      []Option
-		expected     float64
-		err          error
+		section, key  string
+		options       []Option
+		expected      float64
+		sectionExists bool
+		err           error
 	}{
 		"empty case": {
-			"", "", []Option{}, 0, nil,
+			"", "", []Option{}, 0, false, nil,
 		},
 		"missing key": {
-			"dev", "unknown", []Option{}, 0, nil,
+			"dev", "unknown", []Option{}, 0, true, nil,
 		},
 		"matching key": {
-			"dev", "int", []Option{}, 14, nil,
+			"dev", "int", []Option{}, 14, true, nil,
 		},
 		"matching key, empty value": {
-			"dev", "zero", []Option{}, 0, nil,
+			"dev", "zero", []Option{}, 0, true, nil,
 		},
 		"matching key, empty value with default": {
-			"dev", "zero", []Option{Default("42")}, 0, nil,
+			"dev", "zero", []Option{Default("42")}, 0, true, nil,
 		},
 		"matching key, invalid value": {
-			"dev", "invalid", []Option{}, 0, ConversionError{"invalid", "invalid", "float64"},
+			"dev", "invalid", []Option{}, 0, true, ConversionError{"invalid", "invalid", "float64"},
 		},
 		"matching key, float value": {
-			"dev", "float", []Option{}, 12.5, nil,
+			"dev", "float", []Option{}, 12.5, true, nil,
 		},
 		"empty parameter with default": {
-			"dev", "empty", []Option{Default("42")}, 42, nil,
+			"dev", "empty", []Option{Default("42")}, 42, true, nil,
 		},
 	}
 
@@ -311,7 +333,11 @@ func TestFloat(t *testing.T) {
 	var err error
 	for name, tc := range tt {
 		t.Run(name, func(t *testing.T) {
-			actual, err = cnf.Float(tc.section, tc.key, tc.options...)
+			sec, ok := cnf.Section(tc.section)
+			if ok != tc.sectionExists {
+				t.Errorf("expected to find section %q", tc.section)
+			}
+			actual, err = sec.Float(tc.key, tc.options...)
 			if err != tc.err {
 				t.Errorf("expected error %s, got %s", tc.err, err)
 			}
@@ -336,34 +362,35 @@ func TestBool(t *testing.T) {
 	})
 
 	tt := map[string]struct {
-		section, key string
-		options      []Option
-		expected     bool
-		err          error
+		section, key  string
+		options       []Option
+		expected      bool
+		sectionExists bool
+		err           error
 	}{
 		"empty case": {
-			"", "", []Option{}, false, nil,
+			"", "", []Option{}, false, false, nil,
 		},
 		"missing key": {
-			"dev", "unknown", []Option{}, false, nil,
+			"dev", "unknown", []Option{}, false, true, nil,
 		},
 		"matching key": {
-			"dev", "int", []Option{}, true, nil,
+			"dev", "int", []Option{}, true, true, nil,
 		},
 		"matching key, empty value": {
-			"dev", "zero", []Option{}, false, nil,
+			"dev", "zero", []Option{}, false, true, nil,
 		},
 		"matching key, empty value with default": {
-			"dev", "empty", []Option{Default("t")}, true, nil,
+			"dev", "empty", []Option{Default("t")}, true, true, nil,
 		},
 		"matching key, invalid value": {
-			"dev", "invalid", []Option{}, false, ConversionError{"invalid", "invalid", "bool"},
+			"dev", "invalid", []Option{}, false, true, ConversionError{"invalid", "invalid", "bool"},
 		},
 		"matching key, verbal": {
-			"dev", "true", []Option{}, true, nil,
+			"dev", "true", []Option{}, true, true, nil,
 		},
 		"matching key with default": {
-			"dev", "no", []Option{Default("true")}, false, nil,
+			"dev", "no", []Option{Default("true")}, false, true, nil,
 		},
 	}
 
@@ -371,7 +398,11 @@ func TestBool(t *testing.T) {
 	var err error
 	for name, tc := range tt {
 		t.Run(name, func(t *testing.T) {
-			actual, err = cnf.Bool(tc.section, tc.key, tc.options...)
+			sec, ok := cnf.Section(tc.section)
+			if ok != tc.sectionExists {
+				t.Errorf("expected to find section %q", tc.section)
+			}
+			actual, err = sec.Bool(tc.key, tc.options...)
 			if err != tc.err {
 				t.Errorf("expected error %s, got %s", tc.err, err)
 			}
@@ -394,34 +425,35 @@ func TestDuration(t *testing.T) {
 	})
 
 	tt := map[string]struct {
-		section, key string
-		options      []Option
-		expected     string
-		err          error
+		section, key  string
+		options       []Option
+		expected      string
+		sectionExists bool
+		err           error
 	}{
 		"empty case": {
-			"", "", []Option{}, "0s", nil,
+			"", "", []Option{}, "0s", false, nil,
 		},
 		"missing key": {
-			"dev", "unknown", []Option{}, "0s", nil,
+			"dev", "unknown", []Option{}, "0s", true, nil,
 		},
 		"matching key": {
-			"dev", "duration", []Option{}, "10m20s", nil,
+			"dev", "duration", []Option{}, "10m20s", true, nil,
 		},
 		"matching key, empty value": {
-			"dev", "zero", []Option{}, "0s", nil,
+			"dev", "zero", []Option{}, "0s", true, nil,
 		},
 		"matching key, invalid value": {
-			"dev", "invalid", []Option{}, "0s", ConversionError{"invalid", "invalid", "Duration"},
+			"dev", "invalid", []Option{}, "0s", true, ConversionError{"invalid", "invalid", "Duration"},
 		},
 		"matching key, negative duration": {
-			"dev", "negative", []Option{}, "-1h30m0s", nil,
+			"dev", "negative", []Option{}, "-1h30m0s", true, nil,
 		},
 		"empty parameter with default": {
-			"dev", "empty", []Option{Default("30m")}, "30m0s", nil,
+			"dev", "empty", []Option{Default("30m")}, "30m0s", true, nil,
 		},
 		"empty parameter with invalid default": {
-			"dev", "empty", []Option{Default("hello")}, "0s", ConversionError{"empty", "hello", "Duration"},
+			"dev", "empty", []Option{Default("hello")}, "0s", true, ConversionError{"empty", "hello", "Duration"},
 		},
 	}
 
@@ -429,7 +461,11 @@ func TestDuration(t *testing.T) {
 	var err error
 	for name, tc := range tt {
 		t.Run(name, func(t *testing.T) {
-			actual, err = cnf.Duration(tc.section, tc.key, tc.options...)
+			sec, ok := cnf.Section(tc.section)
+			if ok != tc.sectionExists {
+				t.Errorf("expected to find section %q", tc.section)
+			}
+			actual, err = sec.Duration(tc.key, tc.options...)
 			if err != tc.err {
 				t.Errorf("expected error %s, got %s", tc.err, err)
 			}
@@ -458,35 +494,40 @@ func TestTime(t *testing.T) {
 		section, key, format string
 		options              []Option
 		expected             time.Time
+		sectionExists        bool
 		err                  error
 	}{
 		"empty case": {
-			"", "", time.RFC3339, []Option{}, time.Time{}, nil,
+			"", "", time.RFC3339, []Option{}, time.Time{}, false, nil,
 		},
 		"missing key": {
-			"dev", "unknown", time.RFC3339, []Option{}, time.Time{}, nil,
+			"dev", "unknown", time.RFC3339, []Option{}, time.Time{}, true, nil,
 		},
 		"matching key": {
-			"dev", "time", time.RFC3339, []Option{}, reference, nil,
+			"dev", "time", time.RFC3339, []Option{}, reference, true, nil,
 		},
 		"matching key, empty value": {
-			"dev", "zero", time.RFC3339, []Option{}, time.Time{}, ConversionError{"zero", "0", "Time"},
+			"dev", "zero", time.RFC3339, []Option{}, time.Time{}, true, ConversionError{"zero", "0", "Time"},
 		},
 		"matching key, invalid value": {
-			"dev", "invalid", time.RFC3339, []Option{}, time.Time{}, ConversionError{"invalid", "invalid", "Time"},
+			"dev", "invalid", time.RFC3339, []Option{}, time.Time{}, true, ConversionError{"invalid", "invalid", "Time"},
 		},
 		"empty parameter with default": {
-			"dev", "empty", time.RFC3339, []Option{Default("2021-11-06T22:30:00+01:00")}, reference, nil,
+			"dev", "empty", time.RFC3339, []Option{Default("2021-11-06T22:30:00+01:00")}, reference, true, nil,
 		},
 		"empty parameter with invalid default": {
-			"dev", "empty", time.RFC3339, []Option{Default("hello")}, time.Time{}, ConversionError{"empty", "hello", "Time"},
+			"dev", "empty", time.RFC3339, []Option{Default("hello")}, time.Time{}, true, ConversionError{"empty", "hello", "Time"},
 		},
 	}
 
 	var actual time.Time
 	for name, tc := range tt {
 		t.Run(name, func(t *testing.T) {
-			actual, err = cnf.Time(tc.section, tc.key, tc.format, tc.options...)
+			sec, ok := cnf.Section(tc.section)
+			if ok != tc.sectionExists {
+				t.Errorf("expected to find section %q", tc.section)
+			}
+			actual, err = sec.Time(tc.key, tc.format, tc.options...)
 			if err != tc.err {
 				t.Errorf("expected error %s, got %s", tc.err, err)
 			}
@@ -514,10 +555,14 @@ func TestUnset(t *testing.T) {
 		t.Error("expected c.Unset() to return true, got false")
 	}
 
-	name, _ := c.String("Hero", "name")
-	alias, _ := c.String("Hero", "alias")
-	worldSavedLast, _ := c.String("Hero", "worldSavedLast")
-	score, _ := c.String("Hero", "score")
+	hero, ok := c.Section("Hero")
+	if !ok {
+		t.Errorf("expected to find section %q", "Hero")
+	}
+	name, _ := hero.String("name")
+	alias, _ := hero.String("alias")
+	worldSavedLast, _ := hero.String("worldSavedLast")
+	score, _ := hero.String("score")
 
 	if name != "Peter Parker" {
 		t.Fatalf("expected Name to equal %q, got %q", "Peter Parker", name)
@@ -849,10 +894,8 @@ func TestCompare(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			c1 := New(tc.p1)
 			c2 := New(tc.p2)
-			actual := c1.Compare(*c2)
-			if !reflect.DeepEqual(actual, tc.expected) {
-				t.Errorf("expected c1 to equal c2, got diff: %v", actual)
-			}
+			actual := c1.Compare(c2)
+			verifyEqual(t, tc.expected, actual)
 		})
 	}
 }

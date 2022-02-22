@@ -9,10 +9,26 @@ import (
 	"time"
 )
 
+func init() {
+	integralRegExp = regexp.MustCompile(`^[0-9]*$`)
+}
+
 var (
-	Default  = func(val string) Option { return func(o *option) { o.defaultValue = val } }
-	Require  = func() Option { return func(o *option) { o.require = true } }
+	// Default sets a default value that will be returned for empty parameters.
+	Default = func(val string) Option { return func(o *option) { o.defaultValue = val } }
+
+	// Require sets a parameter as required. Empty parameters will cause an error to be returned when fetched.
+	Require = func() Option { return func(o *option) { o.require = true } }
+
+	// Validate validates a parameter against a regular expression. Mismatches will cause an error
+	// to be returned when fetched.
 	Validate = func(regex *regexp.Regexp) Option { return func(o *option) { o.validate = regex } }
+
+	// ValidateIntegral validates a parameter as an integral (integer).
+	ValidateIntegral = func() Option { return func(o *option) { o.validate = integralRegExp } }
+
+	// integralRegExp is the regular expression used to validate integrals.
+	integralRegExp *regexp.Regexp
 )
 
 // Option represents options for retrieving values, i.e. setting defaults, required values, adding validation and more.
@@ -30,7 +46,13 @@ type Pool struct {
 	params map[string]map[string]string
 }
 
-// Strategy represents a merge strategy, identified by the consts below.
+// Section represents a single section of configuration data.
+type Section struct {
+	name   string
+	params map[string]string
+}
+
+// Strategy represents a merge strategy, identified by the constants below.
 type Strategy uint8
 
 const (
@@ -58,171 +80,15 @@ func (p *Pool) Raw() map[string]map[string]string {
 	return p.params
 }
 
-// checkApplyOptions unpacks the given options and checks the given key and value against them.
-// checkApplyOptions returns the original value unaltered if validation succeeds, a default value if one was given
-// and the key does not exist (ok == false), or an empty string and an error if the key was required but does not
-// exist or if value validation failed. Finally, an empty string and a nil error is returned for keys that don't exist
-// but are not required and have no default values.
-func checkApplyOptions(key, value string, ok bool, options ...Option) (string, error) {
-	var opt option
-	for _, o := range options {
-		o(&opt)
+// Section returns the section identified by the given name.
+// The parameter ok is false if the section does not exist.
+func (p *Pool) Section(name string) (section Section, ok bool) {
+	params, ok := p.params[name]
+	section = Section{
+		name:   name,
+		params: params,
 	}
-
-	if value == "" {
-		ok = false
-	}
-
-check:
-	switch {
-	case !ok && opt.require:
-		return "", NoKeyError(key)
-	case !ok && opt.defaultValue != "":
-		ok, value = true, opt.defaultValue
-		goto check
-	case !ok:
-		return "", nil
-	case opt.validate != nil:
-		ok := opt.validate.MatchString(value)
-		if !ok {
-			return "", ValidationError(key)
-		}
-	}
-
-	return value, nil
-}
-
-// String returns the string value for the given key in the given section.
-// A NoKeyError is returned if the key is required but does not exist.
-// A ValidationError is returned if the value didn't validate.
-func (p *Pool) String(section, key string, options ...Option) (string, error) {
-	params, ok := p.params[section]
-	if !ok {
-		return "", nil
-	}
-	val, ok := params[key]
-	return checkApplyOptions(key, val, ok, options...)
-}
-
-// Strings returns the string values for the given key in the given section.
-// Separator will be used to split the string into a slice.
-// A NoKeyError is returned if the key is required but does not exist.
-// A ValidationError is returned if the value didn't validate.
-func (p *Pool) Strings(section, key, separator string, options ...Option) ([]string, error) {
-	val, err := p.String(section, key, options...)
-	if err != nil || val == "" {
-		return nil, err
-	}
-	s := strings.Split(val, separator)
-	return s, nil
-}
-
-// Int attempts to convert the value for the requested key into an int.
-// A NoKeyError is returned if the key is required but does not exist.
-// A ValidationError is returned if the value didn't validate.
-// A ConversionError is returned if type conversion fails.
-func (p *Pool) Int(section, key string, options ...Option) (int, error) {
-	val, err := p.String(section, key, options...)
-	if err != nil || val == "" {
-		return 0, err
-	}
-	i, err := strconv.Atoi(val)
-	if err != nil {
-		return 0, ConversionError{key, val, "int"}
-	}
-	return i, nil
-}
-
-// Float attempts to convert the value for the requested key into a float64.
-// A NoKeyError is returned if the key is required but does not exist.
-// A ValidationError is returned if the value didn't validate.
-// A ConversionError is returned if type conversion fails.
-func (p *Pool) Float(section, key string, options ...Option) (float64, error) {
-	val, err := p.String(section, key, options...)
-	if err != nil || val == "" {
-		return 0, err
-	}
-	f, err := strconv.ParseFloat(val, 64)
-	if err != nil {
-		return 0, ConversionError{key, val, "float64"}
-	}
-	return f, nil
-}
-
-// Bool attempts to convert the value for the requested key into a bool.
-// Acceptable values for truth are: t, true, y, yes and 1.
-// Acceptable values for falsehood are: f, false, n, no and 0.
-// A NoKeyError is returned if the key is required but does not exist.
-// A ValidationError is returned if the value didn't validate.
-// A ConversionError is returned if type conversion fails.
-func (p *Pool) Bool(section, key string, options ...Option) (bool, error) {
-	val, err := p.String(section, key, options...)
-	if err != nil || val == "" {
-		return false, err
-	}
-	switch val {
-	case "t":
-		return true, nil
-	case "true":
-		return true, nil
-	case "y":
-		return true, nil
-	case "yes":
-		return true, nil
-	case "on":
-		return true, nil
-	case "1":
-		return true, nil
-	case "f":
-		return false, nil
-	case "false":
-		return false, nil
-	case "n":
-		return false, nil
-	case "no":
-		return false, nil
-	case "off":
-		return false, nil
-	case "0":
-		return false, nil
-	}
-	return false, ConversionError{key, val, "bool"}
-}
-
-// Duration attempts to convert the value for the requested key into a time.Duration.
-// A NoKeyError is returned if the key is required but does not exist.
-// A ValidationError is returned if the value didn't validate.
-// A ConversionError is returned if type conversion fails.
-func (p *Pool) Duration(section, key string, options ...Option) (time.Duration, error) {
-	val, err := p.String(section, key, options...)
-	if err != nil || val == "" {
-		return 0, err
-	}
-	d, err := time.ParseDuration(val)
-	if err != nil {
-		return 0, ConversionError{key, val, "Duration"}
-	}
-	return d, nil
-}
-
-// Time attempts to convert the value for the requested key into a time.Time.
-// If the time format is omitted, timestamps are parsed as RFC3339 (2006-01-02T15:04:05Z07:00).
-// A NoKeyError is returned if the key is required but does not exist.
-// A ValidationError is returned if the value didn't validate.
-// A ConversionError is returned if type conversion fails.
-func (p *Pool) Time(section, key, format string, options ...Option) (time.Time, error) {
-	val, err := p.String(section, key, options...)
-	if err != nil || val == "" {
-		return time.Time{}, err
-	}
-	if format == "" {
-		format = time.RFC3339
-	}
-	t, err := time.Parse(format, val)
-	if err != nil {
-		return time.Time{}, ConversionError{key, val, "Time"}
-	}
-	return t, nil
+	return section, ok
 }
 
 // Merge stores the given map of configuration parameters, overriding (by default)
@@ -267,8 +133,151 @@ func (p *Pool) Unset(section, key string) bool {
 // already exist in the pool that Compare is called from.
 // Two pools p1 and p2 are identical if, and only if
 // len(p1.Compare(p2)) == 0 && len(p2.Compare(p1)) == 0
-func (p *Pool) Compare(pool Pool) map[string]map[string]string {
+func (p *Pool) Compare(pool *Pool) map[string]map[string]string {
 	return diff(pool.params, p.params)
+}
+
+// String returns the string value for the given key in the current section.
+// A NoKeyError is returned if the key is required but does not exist.
+// A ValidationError is returned if the value didn't validate.
+func (s Section) String(key string, options ...Option) (string, error) {
+	val, ok := s.params[key]
+	return checkApplyOptions(key, val, ok, options...)
+}
+
+// Strings returns the string values for the given key in the given section.
+// Separator will be used to split the string into a slice.
+// A NoKeyError is returned if the key is required but does not exist.
+// A ValidationError is returned if the value didn't validate.
+func (s Section) Strings(key, separator string, options ...Option) ([]string, error) {
+	val, err := s.String(key, options...)
+	if err != nil || val == "" {
+		return nil, err
+	}
+	ss := strings.Split(val, separator)
+	return ss, nil
+}
+
+// Int attempts to convert the value for the requested key into an int.
+// A NoKeyError is returned if the key is required but does not exist.
+// A ValidationError is returned if the value didn't validate.
+// A ConversionError is returned if type conversion fails.
+func (s Section) Int(key string, options ...Option) (int, error) {
+	val, err := s.String(key, options...)
+	if err != nil || val == "" {
+		return 0, err
+	}
+	i, err := strconv.Atoi(val)
+	if err != nil {
+		return 0, ConversionError{key, val, "int"}
+	}
+	return i, nil
+}
+
+// Float attempts to convert the value for the requested key into a float64.
+// A NoKeyError is returned if the key is required but does not exist.
+// A ValidationError is returned if the value didn't validate.
+// A ConversionError is returned if type conversion fails.
+func (s Section) Float(key string, options ...Option) (float64, error) {
+	val, err := s.String(key, options...)
+	if err != nil || val == "" {
+		return 0, err
+	}
+	f, err := strconv.ParseFloat(val, 64)
+	if err != nil {
+		return 0, ConversionError{key, val, "float64"}
+	}
+	return f, nil
+}
+
+// Bool attempts to convert the value for the requested key into a bool.
+// Acceptable values for truth are: t, true, y, yes and 1.
+// Acceptable values for falsehood are: f, false, n, no and 0.
+// A NoKeyError is returned if the key is required but does not exist.
+// A ValidationError is returned if the value didn't validate.
+// A ConversionError is returned if type conversion fails.
+func (s Section) Bool(key string, options ...Option) (bool, error) {
+	val, err := s.String(key, options...)
+	if err != nil || val == "" {
+		return false, err
+	}
+	switch val {
+	case "t", "true", "y", "yes", "on", "1":
+		return true, nil
+	case "f", "false", "n", "no", "off", "0":
+		return false, nil
+	}
+	return false, ConversionError{key, val, "bool"}
+}
+
+// Duration attempts to convert the value for the requested key into a time.Duration.
+// A NoKeyError is returned if the key is required but does not exist.
+// A ValidationError is returned if the value didn't validate.
+// A ConversionError is returned if type conversion fails.
+func (s Section) Duration(key string, options ...Option) (time.Duration, error) {
+	val, err := s.String(key, options...)
+	if err != nil || val == "" {
+		return 0, err
+	}
+	d, err := time.ParseDuration(val)
+	if err != nil {
+		return 0, ConversionError{key, val, "Duration"}
+	}
+	return d, nil
+}
+
+// Time attempts to convert the value for the requested key into a time.Time.
+// If the time format is omitted, timestamps are parsed as RFC3339 (2006-01-02T15:04:05Z07:00).
+// A NoKeyError is returned if the key is required but does not exist.
+// A ValidationError is returned if the value didn't validate.
+// A ConversionError is returned if type conversion fails.
+func (s Section) Time(key, format string, options ...Option) (time.Time, error) {
+	val, err := s.String(key, options...)
+	if err != nil || val == "" {
+		return time.Time{}, err
+	}
+	if format == "" {
+		format = time.RFC3339
+	}
+	t, err := time.Parse(format, val)
+	if err != nil {
+		return time.Time{}, ConversionError{key, val, "Time"}
+	}
+	return t, nil
+}
+
+// checkApplyOptions unpacks the given options and checks the given key and value against them.
+// checkApplyOptions returns the original value unaltered if validation succeeds, a default value if one was given
+// and the key does not exist (ok == false), or an empty string and an error if the key was required but does not
+// exist or if value validation failed. Finally, an empty string and a nil error is returned for keys that don't exist
+// but are not required and have no default values.
+func checkApplyOptions(key, value string, ok bool, options ...Option) (string, error) {
+	var opt option
+	for _, o := range options {
+		o(&opt)
+	}
+
+	if value == "" {
+		ok = false
+	}
+
+check:
+	switch {
+	case !ok && opt.require:
+		return "", NoKeyError(key)
+	case !ok && opt.defaultValue != "":
+		ok, value = true, opt.defaultValue
+		goto check
+	case !ok:
+		return "", nil
+	case opt.validate != nil:
+		ok := opt.validate.MatchString(value)
+		if !ok {
+			return "", ValidationError(key)
+		}
+	}
+
+	return value, nil
 }
 
 // merge two set of parameters, with respect to the provided strategy.
