@@ -10,8 +10,21 @@ import (
 	"time"
 )
 
-// empty is a convenience map that refers to the empty configuration pool.
-var empty = map[string]map[string]string{}
+var (
+	// empty is a convenience map that refers to the empty configuration pool.
+	empty = map[string]map[string]string{}
+
+	// notABCError is used by validateABC.
+	notABCError = errors.New("not a,b,c")
+
+	// validateABC is a validation function that checks if the given string equals a, b or c.
+	validateABC = func(key, val string) error {
+		if val == "a" || val == "b" || val == "c" {
+			return nil
+		}
+		return notABCError
+	}
+)
 
 func TestRaw(t *testing.T) {
 	params := map[string]map[string]string{
@@ -62,31 +75,49 @@ func TestCheckApplyOptions(t *testing.T) {
 			"x", "", false, []Option{Default("z")}, nil, "z",
 		},
 		"got value, options: validate (fails)": {
-			"x", "y", true, []Option{Validate(regexp.MustCompile(`^[0-9]$`))}, ValidationError("x"), "",
+			"x", "y", true, []Option{ValidateRegExp(regexp.MustCompile(`^[0-9]$`))}, RegExpValidationError("x"), "",
 		},
 		"got value, options: validate (succeeds)": {
-			"x", "y", true, []Option{Validate(regexp.MustCompile(`^[a-z]$`))}, nil, "y",
+			"x", "y", true, []Option{ValidateRegExp(regexp.MustCompile(`^[a-z]$`))}, nil, "y",
 		},
 		"no value, options: default, validate (succeeds)": {
-			"x", "", false, []Option{Default("z"), Validate(regexp.MustCompile(`^[a-z]$`))}, nil, "z",
+			"x", "", false, []Option{Default("z"), ValidateRegExp(regexp.MustCompile(`^[a-z]$`))}, nil, "z",
 		},
 		"no value, options: validate (succeeds), default": {
-			"x", "", false, []Option{Validate(regexp.MustCompile(`^[a-z]$`)), Default("z")}, nil, "z",
+			"x", "", false, []Option{ValidateRegExp(regexp.MustCompile(`^[a-z]$`)), Default("z")}, nil, "z",
 		},
 		"no value, options: validate (fails), default": {
-			"x", "", false, []Option{Validate(regexp.MustCompile(`^hello$`)), Default("z")}, ValidationError("x"), "",
+			"x", "", false, []Option{ValidateRegExp(regexp.MustCompile(`^hello$`)), Default("z")}, RegExpValidationError("x"), "",
 		},
 		"got value, options: require, validate (succeeds), default": {
-			"x", "y", true, []Option{Require(), Validate(regexp.MustCompile(`^y$`)), Default("z")}, nil, "y",
+			"x", "y", true, []Option{Require(), ValidateRegExp(regexp.MustCompile(`^y$`)), Default("z")}, nil, "y",
 		},
 		"no value, options: require, validate (succeeds), default": {
-			"x", "", false, []Option{Require(), Validate(regexp.MustCompile(`^y$`)), Default("z")}, NoKeyError("x"), "",
+			"x", "", false, []Option{Require(), ValidateRegExp(regexp.MustCompile(`^y$`)), Default("z")}, NoKeyError("x"), "",
 		},
-		"got value, options: require, validate integral (succeeds), default": {
+		"got value, options: require, validate integral (succeeds)": {
 			"x", "123", true, []Option{Require(), ValidateIntegral()}, nil, "123",
 		},
-		"got value, options: require, validate integral (fails), default": {
-			"x", "123.5", true, []Option{Require(), ValidateIntegral()}, ValidationError("x"), "",
+		"got value, options: require, validate integral (fails)": {
+			"x", "123.5", true, []Option{Require(), ValidateIntegral()}, RegExpValidationError("x"), "",
+		},
+		"got value, options: require, validate func (fails)": {
+			"x", "d", true, []Option{Require(), ValidateFunc(validateABC)}, notABCError, "",
+		},
+		"got value, options: require, validate func (succeeds)": {
+			"x", "c", true, []Option{Require(), ValidateFunc(validateABC)}, nil, "c",
+		},
+		"got value, options: require, validate enum (fails)": {
+			"x", "d", true, []Option{Require(), ValidateEnum([]string{"a", "b", "c"})}, EnumValidationError("x"), "",
+		},
+		"got value, options: require, validate enum (succeeds)": {
+			"x", "a", true, []Option{Require(), ValidateEnum([]string{"a", "b", "c"})}, nil, "a",
+		},
+		"got value, options: require, validate empty enum (succeeds)": {
+			"x", "a", true, []Option{Require(), ValidateEnum(nil)}, nil, "a",
+		},
+		"no value, options: validate empty enum (succeeds), default": {
+			"x", "", false, []Option{ValidateEnum(nil), Default("a")}, nil, "a",
 		},
 	}
 
@@ -196,10 +227,10 @@ func TestStrings(t *testing.T) {
 			"dev", "complex", ",", []Option{}, []string{"14", "hello:56", "\"quo", "ted\"", "+", ""}, true, nil,
 		},
 		"matching key, complex with validation (success)": {
-			"dev", "complex", ",", []Option{Validate(regexp.MustCompile(`^[0-9]{2}`))}, []string{"14", "hello:56", "\"quo", "ted\"", "+", ""}, true, nil,
+			"dev", "complex", ",", []Option{ValidateRegExp(regexp.MustCompile(`^[0-9]{2}`))}, []string{"14", "hello:56", "\"quo", "ted\"", "+", ""}, true, nil,
 		},
 		"matching key, complex with validation (failed)": {
-			"dev", "complex", ",", []Option{Validate(regexp.MustCompile(`^[a-z]{2}`))}, []string{}, true, ValidationError("complex"),
+			"dev", "complex", ",", []Option{ValidateRegExp(regexp.MustCompile(`^[a-z]{2}`))}, []string{}, true, RegExpValidationError("complex"),
 		},
 	}
 
@@ -983,9 +1014,9 @@ func TestErrors(t *testing.T) {
 		t.Errorf("expected to be able to match NoKeyError")
 	}
 
-	errValid := ValidationError("x")
+	errValid := RegExpValidationError("x")
 	if ok = errors.As(errValid, &actual); !ok {
-		t.Errorf("expected to be able to match ValidationError")
+		t.Errorf("expected to be able to match RegExpValidationError")
 	}
 }
 

@@ -20,15 +20,41 @@ var (
 	// Require sets a parameter as required. Empty parameters will cause an error to be returned when fetched.
 	Require = func() Option { return func(o *option) { o.require = true } }
 
-	// Validate validates a parameter against a regular expression. Mismatches will cause an error
+	// ValidateRegExp validates a parameter against a regular expression. Mismatches will cause an error
 	// to be returned when fetched.
-	Validate = func(regex *regexp.Regexp) Option { return func(o *option) { o.validate = regex } }
-
-	// ValidateIntegral validates a parameter as an integral (integer).
-	ValidateIntegral = func() Option { return func(o *option) { o.validate = integralRegExp } }
+	ValidateRegExp = func(regex *regexp.Regexp) Option { return func(o *option) { o.validateRegExp = regex } }
 
 	// integralRegExp is the regular expression used to validate integrals.
 	integralRegExp *regexp.Regexp
+
+	// ValidateIntegral validates a parameter as an integral (integer).
+	ValidateIntegral = func() Option { return func(o *option) { o.validateRegExp = integralRegExp } }
+
+	// ValidateFunc validates a parameter against the given function.
+	// If the function returns a non-nil error, validation fails, and the original error will be returned unwrapped.
+	ValidateFunc = func(validateFunc func(key, value string) error) Option {
+		return func(o *option) {
+			o.validateFunc = validateFunc
+		}
+	}
+
+	// ValidateEnum validates a parameter against a slice of strings.
+	// If the parameter doesn't match one of the strings, an EnumValidationError is returned.
+	ValidateEnum = func(values []string) Option {
+		return func(o *option) {
+			o.validateFunc = func(key, value string) error {
+				if len(values) == 0 {
+					return nil
+				}
+				for _, val := range values {
+					if value == val {
+						return nil
+					}
+				}
+				return EnumValidationError(key)
+			}
+		}
+	}
 )
 
 // Option represents options for retrieving values, i.e. setting defaults, required values, adding validation and more.
@@ -36,9 +62,10 @@ type Option func(*option)
 
 // option is the internal representation of the set of options for a parameter.
 type option struct {
-	defaultValue string
-	validate     *regexp.Regexp
-	require      bool
+	defaultValue   string
+	validateRegExp *regexp.Regexp
+	validateFunc   func(key, value string) error
+	require        bool
 }
 
 // Pool represents a pool of configuration data, divided into named sections.
@@ -139,7 +166,8 @@ func (p *Pool) Compare(pool *Pool) map[string]map[string]string {
 
 // String returns the string value for the given key in the current section.
 // A NoKeyError is returned if the key is required but does not exist.
-// A ValidationError is returned if the value didn't validate.
+// A RegExpValidationError, EnumValidationError or custom error may be returned depending
+// on which validation options were passed.
 func (s Section) String(key string, options ...Option) (string, error) {
 	val, ok := s.params[key]
 	return checkApplyOptions(key, val, ok, options...)
@@ -148,7 +176,10 @@ func (s Section) String(key string, options ...Option) (string, error) {
 // Strings returns the string values for the given key in the given section.
 // Separator will be used to split the string into a slice.
 // A NoKeyError is returned if the key is required but does not exist.
-// A ValidationError is returned if the value didn't validate.
+// A RegExpValidationError, EnumValidationError or custom error may be returned depending
+// on which validation options were passed.
+// Note that any validation options passed are applied to the string value *before* splitting
+// it into multiples.
 func (s Section) Strings(key, separator string, options ...Option) ([]string, error) {
 	val, err := s.String(key, options...)
 	if err != nil || val == "" {
@@ -160,8 +191,9 @@ func (s Section) Strings(key, separator string, options ...Option) ([]string, er
 
 // Int attempts to convert the value for the requested key into an int.
 // A NoKeyError is returned if the key is required but does not exist.
-// A ValidationError is returned if the value didn't validate.
 // A ConversionError is returned if type conversion fails.
+// A RegExpValidationError, EnumValidationError or custom error may be returned depending
+// on which validation options were passed.
 func (s Section) Int(key string, options ...Option) (int, error) {
 	val, err := s.String(key, options...)
 	if err != nil || val == "" {
@@ -176,8 +208,9 @@ func (s Section) Int(key string, options ...Option) (int, error) {
 
 // Float attempts to convert the value for the requested key into a float64.
 // A NoKeyError is returned if the key is required but does not exist.
-// A ValidationError is returned if the value didn't validate.
 // A ConversionError is returned if type conversion fails.
+// A RegExpValidationError, EnumValidationError or custom error may be returned depending
+// on which validation options were passed.
 func (s Section) Float(key string, options ...Option) (float64, error) {
 	val, err := s.String(key, options...)
 	if err != nil || val == "" {
@@ -194,8 +227,9 @@ func (s Section) Float(key string, options ...Option) (float64, error) {
 // Acceptable values for truth are: t, true, y, yes and 1.
 // Acceptable values for falsehood are: f, false, n, no and 0.
 // A NoKeyError is returned if the key is required but does not exist.
-// A ValidationError is returned if the value didn't validate.
 // A ConversionError is returned if type conversion fails.
+// A RegExpValidationError, EnumValidationError or custom error may be returned depending
+// on which validation options were passed.
 func (s Section) Bool(key string, options ...Option) (bool, error) {
 	val, err := s.String(key, options...)
 	if err != nil || val == "" {
@@ -212,8 +246,9 @@ func (s Section) Bool(key string, options ...Option) (bool, error) {
 
 // Duration attempts to convert the value for the requested key into a time.Duration.
 // A NoKeyError is returned if the key is required but does not exist.
-// A ValidationError is returned if the value didn't validate.
 // A ConversionError is returned if type conversion fails.
+// A RegExpValidationError, EnumValidationError or custom error may be returned depending
+// on which validation options were passed.
 func (s Section) Duration(key string, options ...Option) (time.Duration, error) {
 	val, err := s.String(key, options...)
 	if err != nil || val == "" {
@@ -229,8 +264,9 @@ func (s Section) Duration(key string, options ...Option) (time.Duration, error) 
 // Time attempts to convert the value for the requested key into a time.Time.
 // If the time format is omitted, timestamps are parsed as RFC3339 (2006-01-02T15:04:05Z07:00).
 // A NoKeyError is returned if the key is required but does not exist.
-// A ValidationError is returned if the value didn't validate.
 // A ConversionError is returned if type conversion fails.
+// A RegExpValidationError, EnumValidationError or custom error may be returned depending
+// on which validation options were passed.
 func (s Section) Time(key, format string, options ...Option) (time.Time, error) {
 	val, err := s.String(key, options...)
 	if err != nil || val == "" {
@@ -270,10 +306,14 @@ check:
 		goto check
 	case !ok:
 		return "", nil
-	case opt.validate != nil:
-		ok := opt.validate.MatchString(value)
+	case opt.validateRegExp != nil:
+		ok := opt.validateRegExp.MatchString(value)
 		if !ok {
-			return "", ValidationError(key)
+			return "", RegExpValidationError(key)
+		}
+	case opt.validateFunc != nil:
+		if err := opt.validateFunc(key, value); err != nil {
+			return "", err
 		}
 	}
 

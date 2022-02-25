@@ -10,12 +10,20 @@ func (k NoKeyError) Error() string {
 	return fmt.Sprintf("no such key: %q", string(k))
 }
 
-// ValidationError represents an error with value validation against a regular expression.
-type ValidationError string
+// RegExpValidationError represents an error with value validation against a regular expression.
+type RegExpValidationError string
 
-// Error returns the error message for ValidationError.
-func (v ValidationError) Error() string {
-	return fmt.Sprintf("validation failed for key: %q", string(v))
+// Error returns the error message for RegExpValidationError.
+func (v RegExpValidationError) Error() string {
+	return fmt.Sprintf("regexp validation failed for key: %q", string(v))
+}
+
+// EnumValidationError represents an error with value validation against an enum expression.
+type EnumValidationError string
+
+// Error returns the error message for ConversionError.
+func (e EnumValidationError) Error() string {
+	return fmt.Sprintf("enum validation failed for key: %q", string(e))
 }
 
 // ConversionError represents keys and values that can't be converted into the desired type.
