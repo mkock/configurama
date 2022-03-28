@@ -12,7 +12,7 @@ must match the parameter names. Hook functions can be utilized to provide pre-pr
 
 V2 dispenses with the hooks and the "magical" struct assignments and instead provides simple methods for marking
 individual parameters as required, having defaults and having to pass validation using regular expressions. V2 is more
-explicit and doesn't use reflection, so it's recommended over V1.
+explicit and doesn't use reflection, so it's recommended over V1. V2 also has no dependencies.
 
 ## Installation
 
@@ -40,7 +40,7 @@ Retrieving parameters is achieved via the helper methods.
 First, let's fetch a section:
 
 ```go
-devSection, ok =: Pool.Section("dev"")
+devSection, ok =: Pool.Params("dev"")
 ```
 
 Once we have a section, we can extrapolate parameters in a type-safe manner:
@@ -105,7 +105,7 @@ params := map[string]map[string]string{
 config := configurama.New(params)
 
 // In your respective services/packages, parameters can be retrieved as such:
-devSection, ok := config.Section("dev")
+devSection, ok := config.Params("dev")
 if !ok {
 	// Raise an error.
 }
@@ -119,12 +119,13 @@ db, err := devSection.String("db.db", Required())
 
 ### Notes
 
-This package is _not_ concurrency-safe as I didn't deem it necessary for my
-current needs. The common scenario is to simply load configuration from disk,
-populate a Configurama struct with it and then fetching parameters from various
-other packages to extract local copies of each section. If you are using this
-package and need an implementation that is concurrency-safe, let me know, and
-I'll implement it. Or better, provide a PR.
+V2 is concurrency-safe when getting, setting, unsetting and merging keys.
+
+When you call `Pool.Params()`, you will receive a copy of a subset of the keys for a specific section.
+The copy is not concurrency-safe, but changing any keys and/or values in the map also won't affect the
+configuration pool.
+
+V1 is _not_ safe for concurrent use.
 
 ## V1
 

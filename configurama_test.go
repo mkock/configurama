@@ -578,65 +578,65 @@ func TestMergeOverwriteStrategy(t *testing.T) {
 			expected: empty,
 		},
 		"trivial case, first": {
-			first:    map[string]map[string]string{"Section one": {"Field one": "Value one"}},
+			first:    map[string]map[string]string{"Params one": {"Field one": "Value one"}},
 			second:   empty,
-			expected: map[string]map[string]string{"Section one": {"Field one": "Value one"}},
+			expected: map[string]map[string]string{"Params one": {"Field one": "Value one"}},
 		},
 		"trivial case, second": {
 			first:    empty,
-			second:   map[string]map[string]string{"Section one": {"Field one": "Value one"}},
-			expected: map[string]map[string]string{"Section one": {"Field one": "Value one"}},
+			second:   map[string]map[string]string{"Params one": {"Field one": "Value one"}},
+			expected: map[string]map[string]string{"Params one": {"Field one": "Value one"}},
 		},
 		"trivial case, overlapping": {
-			first:    map[string]map[string]string{"Section one": {"Field one": "Value one"}},
-			second:   map[string]map[string]string{"Section one": {"Field one": "Value one"}},
-			expected: map[string]map[string]string{"Section one": {"Field one": "Value one"}},
+			first:    map[string]map[string]string{"Params one": {"Field one": "Value one"}},
+			second:   map[string]map[string]string{"Params one": {"Field one": "Value one"}},
+			expected: map[string]map[string]string{"Params one": {"Field one": "Value one"}},
 		},
 		"trivial case, overlapping, diff value": {
-			first:    map[string]map[string]string{"Section one": {"Field one": "Value one"}},
-			second:   map[string]map[string]string{"Section one": {"Field one": "Value two"}},
-			expected: map[string]map[string]string{"Section one": {"Field one": "Value two"}},
+			first:    map[string]map[string]string{"Params one": {"Field one": "Value one"}},
+			second:   map[string]map[string]string{"Params one": {"Field one": "Value two"}},
+			expected: map[string]map[string]string{"Params one": {"Field one": "Value two"}},
 		},
 		"simple case, overlapping, diff keys": {
-			first:    map[string]map[string]string{"Section one": {"Field one": "Value one", "Field two": "Value two"}},
-			second:   map[string]map[string]string{"Section one": {"Field one": "Value one", "Field three": "Value three"}},
-			expected: map[string]map[string]string{"Section one": {"Field one": "Value one", "Field two": "Value two", "Field three": "Value three"}},
+			first:    map[string]map[string]string{"Params one": {"Field one": "Value one", "Field two": "Value two"}},
+			second:   map[string]map[string]string{"Params one": {"Field one": "Value one", "Field three": "Value three"}},
+			expected: map[string]map[string]string{"Params one": {"Field one": "Value one", "Field two": "Value two", "Field three": "Value three"}},
 		},
 		"simple case, overlapping reverse, diff keys": {
-			first:    map[string]map[string]string{"Section one": {"Field one": "Value one", "Field three": "Value three"}},
-			second:   map[string]map[string]string{"Section one": {"Field one": "Value one", "Field two": "Value two"}},
-			expected: map[string]map[string]string{"Section one": {"Field one": "Value one", "Field two": "Value two", "Field three": "Value three"}},
+			first:    map[string]map[string]string{"Params one": {"Field one": "Value one", "Field three": "Value three"}},
+			second:   map[string]map[string]string{"Params one": {"Field one": "Value one", "Field two": "Value two"}},
+			expected: map[string]map[string]string{"Params one": {"Field one": "Value one", "Field two": "Value two", "Field three": "Value three"}},
 		},
 		"complex case, sections with overlapping keys": {
 			first: map[string]map[string]string{
-				"Section one": {"Field one": "Value one-one", "Field three": "Value one-three", "Field five": "Value one-five"},
-				"Section two": {"Field one": "Value two-one", "Field three": "Value two-three", "Field six": "Value two-six"},
+				"Params one": {"Field one": "Value one-one", "Field three": "Value one-three", "Field five": "Value one-five"},
+				"Params two": {"Field one": "Value two-one", "Field three": "Value two-three", "Field six": "Value two-six"},
 			},
 			second: map[string]map[string]string{
-				"Section one":   {"Field one": "Value one-one", "Field two": "Value two-two"},
-				"Section two":   {"Field six": "Value two-six-new"},
-				"Section three": {"Field one": "Value two-one"},
+				"Params one":   {"Field one": "Value one-one", "Field two": "Value two-two"},
+				"Params two":   {"Field six": "Value two-six-new"},
+				"Params three": {"Field one": "Value two-one"},
 			},
 			expected: map[string]map[string]string{
-				"Section one":   {"Field one": "Value one-one", "Field two": "Value two-two", "Field three": "Value one-three", "Field five": "Value one-five"},
-				"Section two":   {"Field one": "Value two-one", "Field three": "Value two-three", "Field six": "Value two-six-new"},
-				"Section three": {"Field one": "Value two-one"},
+				"Params one":   {"Field one": "Value one-one", "Field two": "Value two-two", "Field three": "Value one-three", "Field five": "Value one-five"},
+				"Params two":   {"Field one": "Value two-one", "Field three": "Value two-three", "Field six": "Value two-six-new"},
+				"Params three": {"Field one": "Value two-one"},
 			},
 		},
 		"complex case, sections with disjoint keys": {
 			first: map[string]map[string]string{
-				"Section one": {"Field one": "Value one-one", "Field three": "Value one-three", "Field five": "Value one-five"},
-				"Section two": {"Field one": "Value two-one", "Field three": "Value two-three", "Field six": "Value two-six"},
+				"Params one": {"Field one": "Value one-one", "Field three": "Value one-three", "Field five": "Value one-five"},
+				"Params two": {"Field one": "Value two-one", "Field three": "Value two-three", "Field six": "Value two-six"},
 			},
 			second: map[string]map[string]string{
-				"Section one":   {"Field two": "Value two-two", "Field four": "Value one-four"},
-				"Section two":   {"Field two": "Value two-two", "Field four": "Value two-four", "Field five": "Value two-five"},
-				"Section three": {"Field one": "Value three-one"},
+				"Params one":   {"Field two": "Value two-two", "Field four": "Value one-four"},
+				"Params two":   {"Field two": "Value two-two", "Field four": "Value two-four", "Field five": "Value two-five"},
+				"Params three": {"Field one": "Value three-one"},
 			},
 			expected: map[string]map[string]string{
-				"Section one":   {"Field one": "Value one-one", "Field two": "Value two-two", "Field three": "Value one-three", "Field four": "Value one-four", "Field five": "Value one-five"},
-				"Section two":   {"Field one": "Value two-one", "Field two": "Value two-two", "Field three": "Value two-three", "Field four": "Value two-four", "Field five": "Value two-five", "Field six": "Value two-six"},
-				"Section three": {"Field one": "Value three-one"},
+				"Params one":   {"Field one": "Value one-one", "Field two": "Value two-two", "Field three": "Value one-three", "Field four": "Value one-four", "Field five": "Value one-five"},
+				"Params two":   {"Field one": "Value two-one", "Field two": "Value two-two", "Field three": "Value two-three", "Field four": "Value two-four", "Field five": "Value two-five", "Field six": "Value two-six"},
+				"Params three": {"Field one": "Value three-one"},
 			},
 		},
 	}
@@ -662,65 +662,65 @@ func TestMergeKeepStrategy(t *testing.T) {
 			expected: empty,
 		},
 		"trivial case, first": {
-			first:    map[string]map[string]string{"Section one": {"Field one": "Value one"}},
+			first:    map[string]map[string]string{"Params one": {"Field one": "Value one"}},
 			second:   empty,
-			expected: map[string]map[string]string{"Section one": {"Field one": "Value one"}},
+			expected: map[string]map[string]string{"Params one": {"Field one": "Value one"}},
 		},
 		"trivial case, second": {
 			first:    empty,
-			second:   map[string]map[string]string{"Section one": {"Field one": "Value one"}},
-			expected: map[string]map[string]string{"Section one": {"Field one": "Value one"}},
+			second:   map[string]map[string]string{"Params one": {"Field one": "Value one"}},
+			expected: map[string]map[string]string{"Params one": {"Field one": "Value one"}},
 		},
 		"trivial case, overlapping": {
-			first:    map[string]map[string]string{"Section one": {"Field one": "Value one"}},
-			second:   map[string]map[string]string{"Section one": {"Field one": "Value one"}},
-			expected: map[string]map[string]string{"Section one": {"Field one": "Value one"}},
+			first:    map[string]map[string]string{"Params one": {"Field one": "Value one"}},
+			second:   map[string]map[string]string{"Params one": {"Field one": "Value one"}},
+			expected: map[string]map[string]string{"Params one": {"Field one": "Value one"}},
 		},
 		"trivial case, overlapping, diff value": {
-			first:    map[string]map[string]string{"Section one": {"Field one": "Value one"}},
-			second:   map[string]map[string]string{"Section one": {"Field one": "Value two"}},
-			expected: map[string]map[string]string{"Section one": {"Field one": "Value one"}},
+			first:    map[string]map[string]string{"Params one": {"Field one": "Value one"}},
+			second:   map[string]map[string]string{"Params one": {"Field one": "Value two"}},
+			expected: map[string]map[string]string{"Params one": {"Field one": "Value one"}},
 		},
 		"simple case, overlapping, diff keys": {
-			first:    map[string]map[string]string{"Section one": {"Field one": "Value one", "Field two": "Value two"}},
-			second:   map[string]map[string]string{"Section one": {"Field one": "Value one", "Field three": "Value three"}},
-			expected: map[string]map[string]string{"Section one": {"Field one": "Value one", "Field two": "Value two", "Field three": "Value three"}},
+			first:    map[string]map[string]string{"Params one": {"Field one": "Value one", "Field two": "Value two"}},
+			second:   map[string]map[string]string{"Params one": {"Field one": "Value one", "Field three": "Value three"}},
+			expected: map[string]map[string]string{"Params one": {"Field one": "Value one", "Field two": "Value two", "Field three": "Value three"}},
 		},
 		"simple case, overlapping reverse, diff keys": {
-			first:    map[string]map[string]string{"Section one": {"Field one": "Value one", "Field three": "Value three"}},
-			second:   map[string]map[string]string{"Section one": {"Field one": "Value one", "Field two": "Value two"}},
-			expected: map[string]map[string]string{"Section one": {"Field one": "Value one", "Field two": "Value two", "Field three": "Value three"}},
+			first:    map[string]map[string]string{"Params one": {"Field one": "Value one", "Field three": "Value three"}},
+			second:   map[string]map[string]string{"Params one": {"Field one": "Value one", "Field two": "Value two"}},
+			expected: map[string]map[string]string{"Params one": {"Field one": "Value one", "Field two": "Value two", "Field three": "Value three"}},
 		},
 		"complex case, sections with overlapping keys": {
 			first: map[string]map[string]string{
-				"Section one": {"Field one": "Value one-one", "Field three": "Value one-three", "Field five": "Value one-five"},
-				"Section two": {"Field one": "Value two-one", "Field three": "Value two-three", "Field six": "Value two-six"},
+				"Params one": {"Field one": "Value one-one", "Field three": "Value one-three", "Field five": "Value one-five"},
+				"Params two": {"Field one": "Value two-one", "Field three": "Value two-three", "Field six": "Value two-six"},
 			},
 			second: map[string]map[string]string{
-				"Section one":   {"Field one": "Value one-one", "Field two": "Value two-two"},
-				"Section two":   {"Field six": "Value two-six-new"},
-				"Section three": {"Field one": "Value two-one"},
+				"Params one":   {"Field one": "Value one-one", "Field two": "Value two-two"},
+				"Params two":   {"Field six": "Value two-six-new"},
+				"Params three": {"Field one": "Value two-one"},
 			},
 			expected: map[string]map[string]string{
-				"Section one":   {"Field one": "Value one-one", "Field two": "Value two-two", "Field three": "Value one-three", "Field five": "Value one-five"},
-				"Section two":   {"Field one": "Value two-one", "Field three": "Value two-three", "Field six": "Value two-six"},
-				"Section three": {"Field one": "Value two-one"},
+				"Params one":   {"Field one": "Value one-one", "Field two": "Value two-two", "Field three": "Value one-three", "Field five": "Value one-five"},
+				"Params two":   {"Field one": "Value two-one", "Field three": "Value two-three", "Field six": "Value two-six"},
+				"Params three": {"Field one": "Value two-one"},
 			},
 		},
 		"complex case, sections with disjoint keys": {
 			first: map[string]map[string]string{
-				"Section one": {"Field one": "Value one-one", "Field three": "Value one-three", "Field five": "Value one-five"},
-				"Section two": {"Field one": "Value two-one", "Field three": "Value two-three", "Field six": "Value two-six"},
+				"Params one": {"Field one": "Value one-one", "Field three": "Value one-three", "Field five": "Value one-five"},
+				"Params two": {"Field one": "Value two-one", "Field three": "Value two-three", "Field six": "Value two-six"},
 			},
 			second: map[string]map[string]string{
-				"Section one":   {"Field two": "Value two-two", "Field four": "Value one-four"},
-				"Section two":   {"Field two": "Value two-two", "Field four": "Value two-four", "Field five": "Value two-five"},
-				"Section three": {"Field one": "Value three-one"},
+				"Params one":   {"Field two": "Value two-two", "Field four": "Value one-four"},
+				"Params two":   {"Field two": "Value two-two", "Field four": "Value two-four", "Field five": "Value two-five"},
+				"Params three": {"Field one": "Value three-one"},
 			},
 			expected: map[string]map[string]string{
-				"Section one":   {"Field one": "Value one-one", "Field two": "Value two-two", "Field three": "Value one-three", "Field four": "Value one-four", "Field five": "Value one-five"},
-				"Section two":   {"Field one": "Value two-one", "Field two": "Value two-two", "Field three": "Value two-three", "Field four": "Value two-four", "Field five": "Value two-five", "Field six": "Value two-six"},
-				"Section three": {"Field one": "Value three-one"},
+				"Params one":   {"Field one": "Value one-one", "Field two": "Value two-two", "Field three": "Value one-three", "Field four": "Value one-four", "Field five": "Value one-five"},
+				"Params two":   {"Field one": "Value two-one", "Field two": "Value two-two", "Field three": "Value two-three", "Field four": "Value two-four", "Field five": "Value two-five", "Field six": "Value two-six"},
+				"Params three": {"Field one": "Value three-one"},
 			},
 		},
 	}
@@ -748,62 +748,62 @@ func TestMergeReportStrategy(t *testing.T) {
 			expectedError: nil,
 		},
 		"trivial case, first": {
-			first:         map[string]map[string]string{"Section one": {"Field one": "Value one"}},
+			first:         map[string]map[string]string{"Params one": {"Field one": "Value one"}},
 			second:        empty,
-			expected:      map[string]map[string]string{"Section one": {"Field one": "Value one"}},
+			expected:      map[string]map[string]string{"Params one": {"Field one": "Value one"}},
 			expectedError: nil,
 		},
 		"trivial case, second": {
 			first:         empty,
-			second:        map[string]map[string]string{"Section one": {"Field one": "Value one"}},
-			expected:      map[string]map[string]string{"Section one": {"Field one": "Value one"}},
+			second:        map[string]map[string]string{"Params one": {"Field one": "Value one"}},
+			expected:      map[string]map[string]string{"Params one": {"Field one": "Value one"}},
 			expectedError: nil,
 		},
 		"trivial case, overlapping, diff value": {
-			first:         map[string]map[string]string{"Section one": {"Field one": "Value one"}},
-			second:        map[string]map[string]string{"Section one": {"Field one": "Value two"}},
+			first:         map[string]map[string]string{"Params one": {"Field one": "Value one"}},
+			second:        map[string]map[string]string{"Params one": {"Field one": "Value two"}},
 			expected:      empty,
-			expectedError: fmt.Errorf("section %q, key %q already exists", "Section one", "Field one"),
+			expectedError: fmt.Errorf("section %q, key %q already exists", "Params one", "Field one"),
 		},
 		"simple case, overlapping, diff keys": {
-			first:         map[string]map[string]string{"Section one": {"Field one": "Value one", "Field two": "Value two"}},
-			second:        map[string]map[string]string{"Section one": {"Field one": "Value one", "Field three": "Value three"}},
+			first:         map[string]map[string]string{"Params one": {"Field one": "Value one", "Field two": "Value two"}},
+			second:        map[string]map[string]string{"Params one": {"Field one": "Value one", "Field three": "Value three"}},
 			expected:      empty,
-			expectedError: fmt.Errorf("section %q, key %q already exists", "Section one", "Field one"),
+			expectedError: fmt.Errorf("section %q, key %q already exists", "Params one", "Field one"),
 		},
 		"simple case, overlapping reverse, diff keys": {
-			first:         map[string]map[string]string{"Section one": {"Field one": "Value one", "Field three": "Value three"}},
-			second:        map[string]map[string]string{"Section one": {"Field one": "Value one", "Field two": "Value two"}},
+			first:         map[string]map[string]string{"Params one": {"Field one": "Value one", "Field three": "Value three"}},
+			second:        map[string]map[string]string{"Params one": {"Field one": "Value one", "Field two": "Value two"}},
 			expected:      empty,
-			expectedError: fmt.Errorf("section %q, key %q already exists", "Section one", "Field one"),
+			expectedError: fmt.Errorf("section %q, key %q already exists", "Params one", "Field one"),
 		},
 		"complex case, sections with overlapping keys": {
 			first: map[string]map[string]string{
-				"Section one": {"Field one": "Value one-one", "Field three": "Value one-three", "Field five": "Value one-five"},
-				"Section two": {"Field one": "Value two-one", "Field three": "Value two-three", "Field six": "Value two-six"},
+				"Params one": {"Field one": "Value one-one", "Field three": "Value one-three", "Field five": "Value one-five"},
+				"Params two": {"Field one": "Value two-one", "Field three": "Value two-three", "Field six": "Value two-six"},
 			},
 			second: map[string]map[string]string{
-				"Section one":   {"Field two": "Value two-two", "Field four": "Value one-four"},
-				"Section two":   {"Field six": "Value two-six-new"},
-				"Section three": {"Field one": "Value two-one"},
+				"Params one":   {"Field two": "Value two-two", "Field four": "Value one-four"},
+				"Params two":   {"Field six": "Value two-six-new"},
+				"Params three": {"Field one": "Value two-one"},
 			},
 			expected:      empty,
-			expectedError: fmt.Errorf("section %q, key %q already exists", "Section two", "Field six"),
+			expectedError: fmt.Errorf("section %q, key %q already exists", "Params two", "Field six"),
 		},
 		"complex case, sections with disjoint keys": {
 			first: map[string]map[string]string{
-				"Section one": {"Field one": "Value one-one", "Field three": "Value one-three", "Field five": "Value one-five"},
-				"Section two": {"Field one": "Value two-one", "Field three": "Value two-three", "Field six": "Value two-six"},
+				"Params one": {"Field one": "Value one-one", "Field three": "Value one-three", "Field five": "Value one-five"},
+				"Params two": {"Field one": "Value two-one", "Field three": "Value two-three", "Field six": "Value two-six"},
 			},
 			second: map[string]map[string]string{
-				"Section one":   {"Field two": "Value two-two", "Field four": "Value one-four"},
-				"Section two":   {"Field two": "Value two-two", "Field four": "Value two-four", "Field five": "Value two-five"},
-				"Section three": {"Field one": "Value three-one"},
+				"Params one":   {"Field two": "Value two-two", "Field four": "Value one-four"},
+				"Params two":   {"Field two": "Value two-two", "Field four": "Value two-four", "Field five": "Value two-five"},
+				"Params three": {"Field one": "Value three-one"},
 			},
 			expected: map[string]map[string]string{
-				"Section one":   {"Field one": "Value one-one", "Field two": "Value two-two", "Field three": "Value one-three", "Field four": "Value one-four", "Field five": "Value one-five"},
-				"Section two":   {"Field one": "Value two-one", "Field two": "Value two-two", "Field three": "Value two-three", "Field four": "Value two-four", "Field five": "Value two-five", "Field six": "Value two-six"},
-				"Section three": {"Field one": "Value three-one"},
+				"Params one":   {"Field one": "Value one-one", "Field two": "Value two-two", "Field three": "Value one-three", "Field four": "Value one-four", "Field five": "Value one-five"},
+				"Params two":   {"Field one": "Value two-one", "Field two": "Value two-two", "Field three": "Value two-three", "Field four": "Value two-four", "Field five": "Value two-five", "Field six": "Value two-six"},
+				"Params three": {"Field one": "Value three-one"},
 			},
 			expectedError: nil,
 		},
@@ -900,49 +900,49 @@ func TestMustPrettyPrint(t *testing.T) {
 			expected: "",
 		},
 		"trivial case": {
-			config: map[string]map[string]string{"Section one": {"Field one": "Value one"}},
-			expected: `[Section one]
+			config: map[string]map[string]string{"Params one": {"Field one": "Value one"}},
+			expected: `[Params one]
   Field one: Value one`,
 		},
 		"trivial edge case": {
-			config:   map[string]map[string]string{"Section one": {}},
-			expected: `[Section one]`,
+			config:   map[string]map[string]string{"Params one": {}},
+			expected: `[Params one]`,
 		},
 		"two-section case": {
 			config: map[string]map[string]string{
-				"Section one": {"Field one": "Value one-one", "Field two": "Value one-two", "Field three": "Value one-three"},
-				"Section two": {"Field one": "Value two-one", "Field two": "Value two-two", "Field three": "Value two-three"},
+				"Params one": {"Field one": "Value one-one", "Field two": "Value one-two", "Field three": "Value one-three"},
+				"Params two": {"Field one": "Value two-one", "Field two": "Value two-two", "Field three": "Value two-three"},
 			},
-			expected: `[Section one]
+			expected: `[Params one]
   Field one: Value one-one
   Field three: Value one-three
   Field two: Value one-two
 
-[Section two]
+[Params two]
   Field one: Value two-one
   Field three: Value two-three
   Field two: Value two-two`,
 		},
 		"multi-section case": {
 			config: map[string]map[string]string{
-				"Section one":   {"Field one": "Value one-one", "Field two": "Value one-two", "Field three": "Value one-three"},
-				"Section two":   {"Field one": "Value two-one", "Field two": "Value two-two", "Field three": "Value two-three"},
-				"Section three": {},
-				"Section four":  {"Field one": "Value four-one", "Field two": "Value four-two", "Field three": "Value four-three"},
+				"Params one":   {"Field one": "Value one-one", "Field two": "Value one-two", "Field three": "Value one-three"},
+				"Params two":   {"Field one": "Value two-one", "Field two": "Value two-two", "Field three": "Value two-three"},
+				"Params three": {},
+				"Params four":  {"Field one": "Value four-one", "Field two": "Value four-two", "Field three": "Value four-three"},
 			},
-			expected: `[Section four]
+			expected: `[Params four]
   Field one: Value four-one
   Field three: Value four-three
   Field two: Value four-two
 
-[Section one]
+[Params one]
   Field one: Value one-one
   Field three: Value one-three
   Field two: Value one-two
 
-[Section three]
+[Params three]
 
-[Section two]
+[Params two]
   Field one: Value two-one
   Field three: Value two-three
   Field two: Value two-two`,

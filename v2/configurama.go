@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -70,14 +71,13 @@ type option struct {
 
 // Pool represents a pool of configuration data, divided into named sections.
 type Pool struct {
+	mu sync.Mutex // Protects access to the fields below.
+
 	params map[string]map[string]string
 }
 
-// Section represents a single section of configuration data.
-type Section struct {
-	name   string
-	params map[string]string
-}
+// Params represents a subset of a configuration pool.
+type Params map[string]string
 
 // Strategy represents a merge strategy, identified by the constants below.
 type Strategy uint8
@@ -103,19 +103,39 @@ func New(params map[string]map[string]string) *Pool {
 }
 
 // Raw returns the entire configuration pool as-is.
+// Modifying the return value will not affect the configuration pool.
 func (p *Pool) Raw() map[string]map[string]string {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	myPool := make(map[string]map[string]string)
+	for name, section := range p.params {
+		myPool[name] = make(map[string]string)
+		for key, val := range section {
+			myPool[name][key] = val
+		}
+	}
+
 	return p.params
 }
 
-// Section returns the section identified by the given name.
+// Params returns the section identified by the given name.
 // The parameter ok is false if the section does not exist.
-func (p *Pool) Section(name string) (section Section, ok bool) {
+func (p *Pool) Params(name string) (section Params, ok bool) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
 	params, ok := p.params[name]
-	section = Section{
-		name:   name,
-		params: params,
+	if !ok {
+		return
 	}
-	return section, ok
+
+	section = make(map[string]string)
+	for key, val := range params {
+		section[key] = val
+	}
+
+	return
 }
 
 // Merge stores the given map of configuration parameters, overriding (by default)
@@ -125,6 +145,9 @@ func (p *Pool) Section(name string) (section Section, ok bool) {
 // - Report: the merge is aborted with an error on the first conflicting key name
 // The default strategy is Report.
 func (p *Pool) Merge(params map[string]map[string]string, strategy Strategy) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
 	res, err := merge(p.params, params, strategy)
 	if err != nil {
 		return err
@@ -133,10 +156,44 @@ func (p *Pool) Merge(params map[string]map[string]string, strategy Strategy) err
 	return nil
 }
 
+// Get returns the value for the given key in the given section.
+// The return value ok will be true if the key exists, and false otherwise.
+// Get provides none of the helper methods provided by Params and should generally but be used to access
+// keys from the configuration pool. However, Get may be useful for other reasons.
+func (p *Pool) Get(section, key string) (value string, ok bool) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	sec, ok := p.params[section]
+	if !ok {
+		return
+	}
+	value, ok = sec[key]
+	return
+}
+
+// Set adds the given key and value pair to the section of the given name.
+// If the section doesn't exist, a NoSectionError is returned. If value is an empty string, then
+// the key will be set to an empty string as well (which is not the same as unsetting a key).
+func (p *Pool) Set(section, key, value string) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	sec, ok := p.params[section]
+	if !ok {
+		return NoSectionError(section)
+	}
+	sec[key] = value
+	return nil
+}
+
 // Unset attempts to remove the given key from the given section.
 // You can provide an empty string for the key to remove the entire section.
 // It returns true if the key/section was removed, otherwise it returns false.
 func (p *Pool) Unset(section, key string) bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
 	sec, ok := p.params[section]
 	if !ok {
 		return false
@@ -161,6 +218,9 @@ func (p *Pool) Unset(section, key string) bool {
 // Two pools p1 and p2 are identical if, and only if
 // len(p1.Compare(p2)) == 0 && len(p2.Compare(p1)) == 0
 func (p *Pool) Compare(pool *Pool) map[string]map[string]string {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
 	return diff(pool.params, p.params)
 }
 
@@ -168,8 +228,8 @@ func (p *Pool) Compare(pool *Pool) map[string]map[string]string {
 // A NoKeyError is returned if the key is required but does not exist.
 // A RegExpValidationError, EnumValidationError or custom error may be returned depending
 // on which validation options were passed.
-func (s Section) String(key string, options ...Option) (string, error) {
-	val, ok := s.params[key]
+func (s Params) String(key string, options ...Option) (string, error) {
+	val, ok := s[key]
 	return checkApplyOptions(key, val, ok, options...)
 }
 
@@ -180,7 +240,7 @@ func (s Section) String(key string, options ...Option) (string, error) {
 // on which validation options were passed.
 // Note that any validation options passed are applied to the string value *before* splitting
 // it into multiples.
-func (s Section) Strings(key, separator string, options ...Option) ([]string, error) {
+func (s Params) Strings(key, separator string, options ...Option) ([]string, error) {
 	val, err := s.String(key, options...)
 	if err != nil || val == "" {
 		return nil, err
@@ -194,7 +254,7 @@ func (s Section) Strings(key, separator string, options ...Option) ([]string, er
 // A ConversionError is returned if type conversion fails.
 // A RegExpValidationError, EnumValidationError or custom error may be returned depending
 // on which validation options were passed.
-func (s Section) Int(key string, options ...Option) (int, error) {
+func (s Params) Int(key string, options ...Option) (int, error) {
 	val, err := s.String(key, options...)
 	if err != nil || val == "" {
 		return 0, err
@@ -211,7 +271,7 @@ func (s Section) Int(key string, options ...Option) (int, error) {
 // A ConversionError is returned if type conversion fails.
 // A RegExpValidationError, EnumValidationError or custom error may be returned depending
 // on which validation options were passed.
-func (s Section) Float(key string, options ...Option) (float64, error) {
+func (s Params) Float(key string, options ...Option) (float64, error) {
 	val, err := s.String(key, options...)
 	if err != nil || val == "" {
 		return 0, err
@@ -230,7 +290,7 @@ func (s Section) Float(key string, options ...Option) (float64, error) {
 // A ConversionError is returned if type conversion fails.
 // A RegExpValidationError, EnumValidationError or custom error may be returned depending
 // on which validation options were passed.
-func (s Section) Bool(key string, options ...Option) (bool, error) {
+func (s Params) Bool(key string, options ...Option) (bool, error) {
 	val, err := s.String(key, options...)
 	if err != nil || val == "" {
 		return false, err
@@ -249,7 +309,7 @@ func (s Section) Bool(key string, options ...Option) (bool, error) {
 // A ConversionError is returned if type conversion fails.
 // A RegExpValidationError, EnumValidationError or custom error may be returned depending
 // on which validation options were passed.
-func (s Section) Duration(key string, options ...Option) (time.Duration, error) {
+func (s Params) Duration(key string, options ...Option) (time.Duration, error) {
 	val, err := s.String(key, options...)
 	if err != nil || val == "" {
 		return 0, err
@@ -267,7 +327,7 @@ func (s Section) Duration(key string, options ...Option) (time.Duration, error) 
 // A ConversionError is returned if type conversion fails.
 // A RegExpValidationError, EnumValidationError or custom error may be returned depending
 // on which validation options were passed.
-func (s Section) Time(key, format string, options ...Option) (time.Time, error) {
+func (s Params) Time(key, format string, options ...Option) (time.Time, error) {
 	val, err := s.String(key, options...)
 	if err != nil || val == "" {
 		return time.Time{}, err
@@ -349,7 +409,7 @@ func merge(first, second map[string]map[string]string, strategy Strategy) (map[s
 	// Merge "second" into the new pool.
 	for sec, params := range second {
 		if _, secOK := res[sec]; secOK {
-			// Section exists. Mind the merge strategy.
+			// Params exists. Mind the merge strategy.
 			for key, val := range params {
 				if _, fieldOK := res[sec][key]; fieldOK {
 					switch strategy {
@@ -367,7 +427,7 @@ func merge(first, second map[string]map[string]string, strategy Strategy) (map[s
 				}
 			}
 		} else {
-			// Section does not exist, or the Overwrite strategy is being used.
+			// Params does not exist, or the Overwrite strategy is being used.
 			// So we just copy values one by one.
 			res[sec] = make(map[string]string)
 			for field, val := range params {
@@ -393,7 +453,7 @@ func diff(first, second map[string]map[string]string) map[string]map[string]stri
 				res[sec][key] = val
 			}
 		}
-		// Section is present, so check key/value pairs one by one.
+		// Params is present, so check key/value pairs one by one.
 		for key, val := range params {
 			if secVal, ok := second[sec][key]; !ok || (ok && secVal != first[sec][key]) {
 				if !gotSection {
@@ -412,7 +472,7 @@ func diff(first, second map[string]map[string]string) map[string]map[string]stri
 // pool, with section names nested in brackets, and key/value pairs listed
 // line-by-line using the given indentation. It panics if it couldn't generate
 // a valid string.
-// Section names, as well as key names within each section, are sorted
+// Params names, as well as key names within each section, are sorted
 // alphabetically in order to create deterministic and more comparable output.
 func MustPrettyPrint(pool map[string]map[string]string, indent string) string {
 	var out strings.Builder

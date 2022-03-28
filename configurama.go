@@ -19,7 +19,7 @@ type Strategy uint8
 
 const (
 	// Report is the default strategy, it will report an error
-	//for parameters that already exist.
+	// for parameters that already exist.
 	Report Strategy = iota
 
 	// The Overwrite strategy overwrites parameters for which new values exist.
@@ -210,7 +210,7 @@ func merge(first, second map[string]map[string]string, strategy Strategy) (map[s
 	// Merge "second" into the new pool.
 	for sec, params := range second {
 		if _, secOK := res[sec]; secOK {
-			// Section exists. Mind the merge strategy.
+			// Params exists. Mind the merge strategy.
 			for key, val := range params {
 				if _, fieldOK := res[sec][key]; fieldOK {
 					switch strategy {
@@ -228,7 +228,7 @@ func merge(first, second map[string]map[string]string, strategy Strategy) (map[s
 				}
 			}
 		} else {
-			// Section does not exist, or the Overwrite strategy is being used.
+			// Params does not exist, or the Overwrite strategy is being used.
 			// So we just copy values one by one.
 			res[sec] = make(map[string]string)
 			for field, val := range params {
@@ -254,7 +254,7 @@ func diff(first, second map[string]map[string]string) map[string]map[string]stri
 				res[sec][key] = val
 			}
 		}
-		// Section is present, so check key/value pairs one by one.
+		// Params is present, so check key/value pairs one by one.
 		for key, val := range params {
 			if secVal, ok := second[sec][key]; !ok || (ok && secVal != first[sec][key]) {
 				if !gotSection {
@@ -273,7 +273,7 @@ func diff(first, second map[string]map[string]string) map[string]map[string]stri
 // pool, with section names nested in brackets, and key/value pairs listed
 // line-by-line using the given indentation. It panics if it couldn't generate
 // a valid string.
-// Section names, as well as key names within each section, are sorted
+// Params names, as well as key names within each section, are sorted
 // alphabetically in order to create deterministic and more comparable output.
 func MustPrettyPrint(pool map[string]map[string]string, indent string) string {
 	var out strings.Builder

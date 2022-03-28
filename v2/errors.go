@@ -2,6 +2,14 @@ package configurama
 
 import "fmt"
 
+// NoSectionError represents unknown sections.
+type NoSectionError string
+
+// Error returns the error message for NoSectionError.
+func (s NoSectionError) Error() string {
+	return fmt.Sprintf("no such section: %q", string(s))
+}
+
 // NoKeyError represents unknown keys when required via the Option Require.
 type NoKeyError string
 
